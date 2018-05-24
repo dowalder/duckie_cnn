@@ -11,6 +11,9 @@ import torch.optim
 import dataset
 
 
+DEVICE = "cuda:1"
+
+
 def _num_flat_features(x: torch.Tensor):
     """
     Compute the number of features in a tensor.
@@ -32,13 +35,13 @@ def weights_init(m):
         nn.init.xavier_uniform_(m.weight)
 
 
-class Net(nn.Module):
+class BasicCopyNet(nn.Module):
     """
-    Net
+    The exact copy of the caffe net in https://github.com/syangav/duckietown_imitation_learning
     """
 
     def __init__(self):
-        super(Net, self).__init__()
+        super(BasicCopyNet, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=16, kernel_size=7, padding=3, stride=2)
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, padding=2, stride=2)
@@ -59,12 +62,19 @@ class Net(nn.Module):
         return x
 
 
-def validation(net: Net, test_loader: torch.utils.data.DataLoader) -> None:
+class ThreeImagesNet(BasicCopyNet):
+
+    def __init__(self):
+        super(ThreeImagesNet, self).__init__()
+        self.fc1 = nn.Linear(30 * 5 * 64, 1024)
+
+
+def validation(net: BasicCopyNet, test_loader: torch.utils.data.DataLoader) -> None:
     avg_mse = 0
     for data in test_loader:
         labels, images = data
-        labels = labels.to("cuda:0")
-        images = images.to("cuda:0")
+        labels = labels.to(DEVICE)
+        images = images.to(DEVICE)
 
         outputs = net(images)
 
@@ -73,33 +83,39 @@ def validation(net: Net, test_loader: torch.utils.data.DataLoader) -> None:
         avg_mse += loss.item()
     avg_mse /= len(test_loader)
 
-    print("Average MSE: {}".format(avg_mse))
+    print("test: {}".format(avg_mse))
 
 
 def main():
-    train_set = dataset.DataSet(pathlib.Path("/home/dominik/workspace/duckietown_imitation_learning/train_images"))
-    test_set = dataset.DataSet(pathlib.Path("/home/dominik/workspace/duckietown_imitation_learning/test_images"))
+    # train_set = dataset.ThreeImagesDataSet(pathlib.Path("/home/dominik/workspace/duckietown_imitation_learning/train_images"))
+    # test_set = dataset.ThreeImagesDataSet(pathlib.Path("/home/dominik/workspace/duckietown_imitation_learning/test_images"))
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=200, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False)
+    print("Loading data...")
+    train_set = dataset.ThreeImagesDataSet(pathlib.Path("train_images"))
+    test_set = dataset.ThreeImagesDataSet(pathlib.Path("test_images"))
 
-    device = "cuda:0"
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=200, shuffle=True, num_workers=10)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=10)
 
-    net = Net()
+    print("Loading net...")
+    net = ThreeImagesNet()
     net.apply(weights_init)
-    net.to(device)
+    print("To device...")
+    net.to(DEVICE)
 
+    print("Loading optimizers...")
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.85, weight_decay=0.0005)
 
     running_loss = 0
 
+    print("Started training:")
     for epoch in range(100):
         for i, (lbls, imgs) in enumerate(train_loader):
             optimizer.zero_grad()
 
-            lbls = lbls.to(device)
-            imgs = imgs.to(device)
+            lbls = lbls.to(DEVICE)
+            imgs = imgs.to(DEVICE)
 
             outputs = net(imgs)
 
@@ -109,9 +125,10 @@ def main():
 
             running_loss += loss.item()
 
-            # if i % 10 == 9:
-            print(loss.item())
-            validation(net, test_loader)
+            if i % 5 == 4:
+                print("train [{}/{}]: {}".format(i, epoch, running_loss / 10))
+                running_loss = 0
+                validation(net, test_loader)
 
 
 if __name__ == "__main__":
