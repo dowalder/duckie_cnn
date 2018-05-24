@@ -47,20 +47,7 @@ class ThreeImagesDataSet(DataSet):
     def __init__(self, data_dir: pathlib.Path):
         super(ThreeImagesDataSet, self).__init__(data_dir)
 
-        sorted_paths = self.images[:]  # copy the list
-        sorted_paths.sort()
-        self.images = []
-
-        three_imgs = []
-        for i, img_path in enumerate(sorted_paths):
-            if len(three_imgs) == 3:
-                self.images.append(three_imgs)
-                self.labels[len(self.images) - 1] = self.labels[i]
-                three_imgs = []
-            else:
-                three_imgs.append(img_path)
-
-        self.labels = self.labels[:len(self.images)]
+        self.images.sort()
 
         self.transform = transforms.Compose([
             transforms.ToPILImage(),
@@ -70,7 +57,10 @@ class ThreeImagesDataSet(DataSet):
         ])
 
     def __getitem__(self, item):
-        imgs = [cv2.imread(path.as_posix()) for path in self.images[item]]
+        if item < 2:
+            item = 2
+
+        imgs = [cv2.imread(path.as_posix()) for path in self.images[item-2:item]]
         img = np.concatenate(tuple(imgs))
         return torch.Tensor(self.labels[item]), self.transform(img)
 
