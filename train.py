@@ -35,13 +35,13 @@ def weights_init(m):
         nn.init.xavier_uniform_(m.weight)
 
 
-class BasicCopyNet(nn.Module):
+class InitialNet(nn.Module):
     """
-    The exact copy of the caffe net in https://github.com/syangav/duckietown_imitation_learning
+    The exact (as possible) copy of the caffe net in https://github.com/syangav/duckietown_imitation_learning
     """
 
     def __init__(self):
-        super(BasicCopyNet, self).__init__()
+        super(InitialNet, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=16, kernel_size=7, padding=3, stride=2)
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, padding=2, stride=2)
@@ -62,14 +62,25 @@ class BasicCopyNet(nn.Module):
         return x
 
 
-class ThreeImagesNet(BasicCopyNet):
+class NImagesNet(InitialNet):
+    """
+    This extends the InitialNet so that it accepts larger images. Images for this network can have n times more pixels
+    in the height, but need to keep the original width.
+    """
 
-    def __init__(self):
-        super(ThreeImagesNet, self).__init__()
-        self.fc1 = nn.Linear(30 * 5 * 64, 1024)
+    def __init__(self, n: int = 1):
+        super(NImagesNet, self).__init__()
+        self.fc1 = nn.Linear(n * 10 * 5 * 64, 1024)
 
 
-def validation(net: BasicCopyNet, test_loader: torch.utils.data.DataLoader) -> None:
+def validation(net: InitialNet, test_loader: torch.utils.data.DataLoader) -> None:
+    """
+    Perform a validation step on the test set loaded by test_loader.
+
+    :param net:
+    :param test_loader:
+    :return:
+    """
     avg_mse = 0
     for data in test_loader:
         labels, images = data
@@ -87,18 +98,15 @@ def validation(net: BasicCopyNet, test_loader: torch.utils.data.DataLoader) -> N
 
 
 def main():
-    # train_set = dataset.ThreeImagesDataSet(pathlib.Path("/home/dominik/workspace/duckietown_imitation_learning/train_images"))
-    # test_set = dataset.ThreeImagesDataSet(pathlib.Path("/home/dominik/workspace/duckietown_imitation_learning/test_images"))
-
     print("Loading data...")
-    train_set = dataset.ThreeImagesDataSet(pathlib.Path("train_images"))
-    test_set = dataset.ThreeImagesDataSet(pathlib.Path("test_images"))
+    train_set = dataset.NImagesDataSet(pathlib.Path("train_images"), n=3)
+    test_set = dataset.NImagesDataSet(pathlib.Path("test_images"), n=3)
 
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=200, shuffle=True, num_workers=10)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=10)
 
     print("Loading net...")
-    net = ThreeImagesNet()
+    net = NImagesNet(n=3)
     net.apply(weights_init)
     print("To device...")
     net.to(DEVICE)
@@ -111,6 +119,10 @@ def main():
 
     print("Started training:")
     for epoch in range(100):
+        # Perform learning rate decay
+        if epoch == 15:
+            optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.85, weight_decay=0.0005)
+
         for i, (lbls, imgs) in enumerate(train_loader):
             optimizer.zero_grad()
 

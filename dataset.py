@@ -42,25 +42,29 @@ class DataSet(torch.utils.data.Dataset):
         return torch.Tensor(self.labels[item]), self.transform(img)
 
 
-class ThreeImagesDataSet(DataSet):
+class NImagesDataSet(DataSet):
+    """
+    And extended data set, that returns n images concatenated as one instead of a single one.
+    """
 
-    def __init__(self, data_dir: pathlib.Path):
-        super(ThreeImagesDataSet, self).__init__(data_dir)
+    def __init__(self, data_dir: pathlib.Path, n: int = 1):
+        super(NImagesDataSet, self).__init__(data_dir)
 
+        self.n = n
         self.images.sort()
 
         self.transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Grayscale(),
-            transforms.Resize((240, 160)),
+            transforms.Resize((80 * self.n, 160)),
             transforms.ToTensor(),
         ])
 
     def __getitem__(self, item):
-        if item < 2:
-            item = 2
+        if item < self.n:
+            item = self.n
 
-        imgs = [cv2.imread(path.as_posix()) for path in self.images[item-2:item]]
+        imgs = [cv2.imread(path.as_posix()) for path in self.images[item - self.n:item]]
         img = np.concatenate(tuple(imgs))
         return torch.Tensor(self.labels[item]), self.transform(img)
 
