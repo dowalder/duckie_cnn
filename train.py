@@ -11,7 +11,7 @@ import torch.optim
 import dataset
 
 
-DEVICE = "cuda:1"
+DEVICE = "cuda:0"
 
 
 def _num_flat_features(x: torch.Tensor):
@@ -73,6 +73,16 @@ class NImagesNet(InitialNet):
         self.fc1 = nn.Linear(n * 10 * 5 * 64, 1024)
 
 
+class FutureLabelNet(NImagesNet):
+    """
+    Is able to give out the current and the next label as an ouput of the network.
+    """
+
+    def __init__(self, n: int=1):
+        super(FutureLabelNet, self).__init__(n=n)
+        self.fc2 = nn.Linear(1024, 2)
+
+
 def validation(net: InitialNet, test_loader: torch.utils.data.DataLoader) -> None:
     """
     Perform a validation step on the test set loaded by test_loader.
@@ -98,15 +108,19 @@ def validation(net: InitialNet, test_loader: torch.utils.data.DataLoader) -> Non
 
 
 def main():
+    N = 1
     print("Loading data...")
-    train_set = dataset.NImagesDataSet(pathlib.Path("train_images"), n=3)
-    test_set = dataset.NImagesDataSet(pathlib.Path("test_images"), n=3)
+    # train_set = dataset.FutureLabelDataSet(pathlib.Path("../duckietown_imitation_learning/train_images"), n=N)
+    # test_set = dataset.FutureLabelDataSet(pathlib.Path("../duckietown_imitation_learning/test_images"), n=N)
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=200, shuffle=True, num_workers=10)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=10)
+    train_set = dataset.FutureLabelDataSet(pathlib.Path("train_images"), n=N)
+    test_set = dataset.FutureLabelDataSet(pathlib.Path("test_images"), n=N)
+
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=200, shuffle=True, num_workers=0)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=0)
 
     print("Loading net...")
-    net = NImagesNet(n=3)
+    net = FutureLabelNet(n=N)
     net.apply(weights_init)
     print("To device...")
     net.to(DEVICE)

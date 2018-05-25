@@ -53,6 +53,9 @@ class NImagesDataSet(DataSet):
         self.n = n
         self.images.sort()
 
+        if len(self) < self.n:
+            raise RuntimeError("Found {} images in {}, but require at least {}.".format(len(self), data_dir, self.n))
+
         self.transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Grayscale(),
@@ -60,13 +63,25 @@ class NImagesDataSet(DataSet):
             transforms.ToTensor(),
         ])
 
-    def __getitem__(self, item):
-        if item < self.n:
-            item = self.n
+    def __len__(self):
+        return len(self.images) - self.n
 
-        imgs = [cv2.imread(path.as_posix()) for path in self.images[item - self.n:item]]
+    def __getitem__(self, item):
+        imgs = [cv2.imread(path.as_posix()) for path in self.images[item:item + self.n]]
         img = np.concatenate(tuple(imgs))
-        return torch.Tensor(self.labels[item]), self.transform(img)
+        return torch.Tensor(self.labels[item + self.n]), self.transform(img)
+
+
+class FutureLabelDataSet(NImagesDataSet):
+
+    def __len__(self):
+        # for every entry, we need a future label, therefor we cannot return a value for the last image/label pair
+        return len(self.images) - self.n - 1
+
+    def __getitem__(self, item):
+        imgs = [cv2.imread(path.as_posix()) for path in self.images[item:item + self.n]]
+        img = np.concatenate(tuple(imgs))
+        return torch.Tensor(self.labels[item + self.n] + self.labels[item + self.n + 1]), self.transform(img)
 
 
 if __name__ == "__main__":
