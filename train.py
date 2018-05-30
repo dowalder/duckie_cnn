@@ -11,7 +11,7 @@ import torch.optim
 import dataset
 
 
-DEVICE = "cuda:0"
+DEVICE = "cuda:1"
 
 
 def _num_flat_features(x: torch.Tensor):
@@ -110,18 +110,19 @@ def validation(net: InitialNet, test_loader: torch.utils.data.DataLoader) -> Non
 def main():
     N = 1
     print("Loading data...")
-    # train_set = dataset.FutureLabelDataSet(pathlib.Path("../duckietown_imitation_learning/train_images"), n=N)
-    # test_set = dataset.FutureLabelDataSet(pathlib.Path("../duckietown_imitation_learning/test_images"), n=N)
+    # train_set = dataset.NImagesDataSet(pathlib.Path("../duckietown_imitation_learning/train_images"), n=N)
+    # test_set = dataset.NImagesDataSet(pathlib.Path("../duckietown_imitation_learning/test_images"), n=N)
 
-    train_set = dataset.FutureLabelDataSet(pathlib.Path("train_images"), n=N)
-    test_set = dataset.FutureLabelDataSet(pathlib.Path("test_images"), n=N)
+    train_set = dataset.NImagesDataSet(pathlib.Path("train_images"), n=N)
+    test_set = dataset.NImagesDataSet(pathlib.Path("test_images"), n=N)
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=200, shuffle=True, num_workers=0)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=200, shuffle=False, num_workers=0)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=0)
 
     print("Loading net...")
-    net = FutureLabelNet(n=N)
+    net = NImagesNet(n=N)
     net.apply(weights_init)
+    # net.load_state_dict(torch.load("/home/dominik/workspace/duckie_cnn/cpu.ckpt"))
     print("To device...")
     net.to(DEVICE)
 
@@ -134,8 +135,8 @@ def main():
     print("Started training:")
     for epoch in range(100):
         # Perform learning rate decay
-        if epoch == 15:
-            optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.85, weight_decay=0.0005)
+        # if epoch == 15:
+        #     optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.85, weight_decay=0.0005)
 
         for i, (lbls, imgs) in enumerate(train_loader):
             optimizer.zero_grad()
@@ -152,9 +153,13 @@ def main():
             running_loss += loss.item()
 
             if i % 5 == 4:
-                print("train [{}/{}]: {}".format(i, epoch, running_loss / 10))
+                print("train [{}/{}]: {}".format(i, epoch, running_loss / 5))
                 running_loss = 0
                 validation(net, test_loader)
+        if epoch % 20 == 19:
+            path = "epoch_{}.ckpt".format(epoch)
+            print("saving model to {}".format(path))
+            torch.save(net.state_dict(), path)
 
 
 if __name__ == "__main__":
