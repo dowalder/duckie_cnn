@@ -1,3 +1,10 @@
 __pycache__/
 venv3
 .idea
+*.ckpt
+*.pth
+*.jpg
+*.csv
+
+
+
