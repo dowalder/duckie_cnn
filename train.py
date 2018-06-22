@@ -142,7 +142,7 @@ def train_rnn():
 
     test_interval = 250
     save_interval = 5000
-    display_interval = 250
+    display_interval = 1
 
     net = networks.BasicConvRNN()
     net.to("cuda:0")

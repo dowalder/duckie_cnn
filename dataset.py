@@ -94,6 +94,7 @@ class RNNDataSet(torch.utils.data.Dataset):
     def __init__(self, data_dir: pathlib.Path, seq_length: Union[int, Tuple[int, int]], device="cpu"):
         self.length = seq_length if isinstance(seq_length, tuple) else seq_length
         self.sequences = []
+        self.dir = data_dir
         for path in data_dir.iterdir():
             if path.suffix == ".yaml":
                 self.sequences.append(yaml.load(path.read_text()))
@@ -117,7 +118,7 @@ class RNNDataSet(torch.utils.data.Dataset):
         lbls = torch.empty(size=(length, 2), dtype=torch.float, device=self.device)
 
         for idx, img_info in enumerate(seq[start_idx:start_idx + length]):
-            img = cv2.imread(img_info["path"])
+            img = cv2.imread((self.dir / img_info["path"]).as_posix())
             if img is None:
                 raise RuntimeError("Could not find the image at: {}".format(img_info["path"]))
 
