@@ -1,5 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
+import pathlib
+import random
 
 import torch
 import torch.nn
@@ -33,7 +35,7 @@ def validation(net, test_loader, criterion, device="cpu"):
     print("\ttest loss: %f" % avg_mse)
 
 
-def train_net(net,
+def train_cnn(net,
               train_loader,
               test_loader,
               criterion,
@@ -87,7 +89,7 @@ def train_net(net,
             running_loss += loss.item()
 
             if step % disp_interval == 0 and step != 0:
-                print("[%d][%d] training loss: %f" % (epoch, step, running_loss / val_interval))
+                print("[%d][%d] training loss: %f" % (epoch, step, running_loss / disp_interval))
                 running_loss = 0
 
             if step % val_interval == 0 and step != 0:
@@ -124,3 +126,72 @@ def exact_caffe_copy_factory(train_path, test_path):
     optimizer = torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.85, weight_decay=0.0005)
 
     return net, train_loader, test_loader, criterion, optimizer
+
+
+def train_rnn():
+    train_set1 = dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train"), 10)
+    train_set2 = dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train"), 20)
+    test_set = dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/test"), 40)
+
+    test_interval = 250
+    save_interval = 5000
+    display_interval = 250
+
+    net = networks.BasicConvRNN()
+    net.to("cuda:0")
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adadelta(net.parameters())
+
+    num_epochs = 400
+    step = 0
+    running_loss = 0
+
+    for train_set in [train_set1, train_set2]:
+        for epoch in range(num_epochs):
+            for idx in range(len(train_set)):
+                optimizer.zero_grad()
+                net.zero_grad()
+
+                net.init_hidden()
+
+                idx_actually = random.choice(list(range(len(train_set))))
+
+                imgs, actions, lbls = train_set[idx_actually]
+
+                out = net.cnn_pass(imgs)
+                out = net.rnn_pass(out, actions)
+
+                out = out.squeeze()
+                loss = criterion(out, lbls)
+                loss.backward()
+                optimizer.step()
+
+                running_loss += loss.item()
+                step += 1
+
+                if step % display_interval == 0:
+                    print("[{}][{}]: {}".format(epoch, idx, running_loss / display_interval))
+                    running_loss = 0
+
+                if step % test_interval == 0:
+                    with torch.no_grad():
+                        test_loss = 0
+                        net.init_hidden()
+                        for imgs, actions, lbls in test_set:
+                            out = net(imgs, actions)
+                            out = out.squeeze()
+                            loss = criterion(out, lbls)
+                            test_loss += loss.item()
+
+                        print("test: {}".format(test_loss / len(test_set)))
+
+                if step % save_interval == 0:
+                    model_path = pathlib.Path(
+                        "/home/dominik/dataspace/models/rnn_randomwalk_forwad") / "step_{}.pth".format(step)
+                    print("Saving model to {}".format(model_path))
+                    torch.save(net.state_dict(), model_path.as_posix())
+
+
+if __name__ == "__main__":
+    train_rnn()
+

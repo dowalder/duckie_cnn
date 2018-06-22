@@ -1,6 +1,9 @@
-#!/usr/env/python
+#!/usr/bin/env python3
 import os
+import pathlib
 import PIL.Image
+import yaml
+from typing import Union, Tuple
 
 import torch
 import torch.utils.data
@@ -86,5 +89,44 @@ class FutureLabelDataSet(NImagesDataSet):
         return torch.Tensor(self.labels[item + self.n] + self.labels[item + self.n + 1]), self.transform(img)
 
 
+class RNNDataSet(torch.utils.data.Dataset):
+
+    def __init__(self, data_dir: pathlib.Path, seq_length: Union[int, Tuple[int, int]]):
+        self.length = seq_length if isinstance(seq_length, tuple) else seq_length
+        self.sequences = []
+        for path in data_dir.iterdir():
+            if path.suffix == ".yaml":
+                self.sequences.append(yaml.load(path.read_text()))
+
+        self.transform = transforms.ToTensor()
+        self.device = torch.device("cuda:0")
+
+    def __len__(self):
+        return len(self.sequences)
+
+    def __getitem__(self, item):
+        seq = self.sequences[item]
+        length = np.random.randint(self.length[0], self.length[1]) if isinstance(self.length, tuple) else self.length
+        if length >= len(seq):
+            length = len(seq) - 1
+
+        start_idx = np.random.randint(0, len(seq) - length)
+
+        imgs = torch.empty(size=(length, 3, 120, 160), dtype=torch.float, device=self.device)
+        actions = torch.empty(size=(length, 2), dtype=torch.float, device=self.device)
+        lbls = torch.empty(size=(length, 2), dtype=torch.float, device=self.device)
+
+        for idx, img_info in enumerate(seq[start_idx:start_idx + length]):
+            img = cv2.imread(img_info["path"])
+            if img is None:
+                raise RuntimeError("Could not find the image at: {}".format(img_info["path"]))
+
+            imgs[idx, :, :, :] = self.transform(img)
+            actions[idx, :] = torch.Tensor(img_info["action"])
+            lbls[idx, :] = torch.Tensor(img_info["modifier"])
+
+        return imgs, actions, lbls
+
+
 if __name__ == "__main__":
-    pass
+    raise NotImplemented("This module cannot be run as an executable")
