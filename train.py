@@ -129,9 +129,16 @@ def exact_caffe_copy_factory(train_path, test_path):
 
 
 def train_rnn():
-    train_set1 = dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train"), 10)
-    train_set2 = dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train"), 20)
-    test_set = dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/test"), 40)
+    train_sets = []
+    # train_sets.append(dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train_large"),
+    #                                      10,
+    #                                      device="cuda:0"))
+    train_sets.append(dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train"),
+                                         10,
+                                         device="cuda:0"))
+    test_set = dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/test"),
+                                  10,
+                                  device="cuda:0")
 
     test_interval = 250
     save_interval = 5000
@@ -142,11 +149,11 @@ def train_rnn():
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adadelta(net.parameters())
 
-    num_epochs = 400
+    num_epochs = 1000
     step = 0
     running_loss = 0
 
-    for train_set in [train_set1, train_set2]:
+    for train_set in train_sets:
         for epoch in range(num_epochs):
             for idx in range(len(train_set)):
                 optimizer.zero_grad()

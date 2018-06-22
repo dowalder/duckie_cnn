@@ -91,7 +91,7 @@ class FutureLabelDataSet(NImagesDataSet):
 
 class RNNDataSet(torch.utils.data.Dataset):
 
-    def __init__(self, data_dir: pathlib.Path, seq_length: Union[int, Tuple[int, int]]):
+    def __init__(self, data_dir: pathlib.Path, seq_length: Union[int, Tuple[int, int]], device="cpu"):
         self.length = seq_length if isinstance(seq_length, tuple) else seq_length
         self.sequences = []
         for path in data_dir.iterdir():
@@ -99,7 +99,7 @@ class RNNDataSet(torch.utils.data.Dataset):
                 self.sequences.append(yaml.load(path.read_text()))
 
         self.transform = transforms.ToTensor()
-        self.device = torch.device("cuda:0")
+        self.device = torch.device(device)
 
     def __len__(self):
         return len(self.sequences)
