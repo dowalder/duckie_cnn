@@ -133,23 +133,23 @@ def train_rnn():
     # train_sets.append(dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train_large"),
     #                                      10,
     #                                      device="cuda:0"))
-    train_sets.append(dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train"),
+    train_sets.append(dataset.RNNDataSet(pathlib.Path("/home/dwalder/data/images/randomwalk_forward/train_large"),
                                          10,
                                          device="cuda:0"))
-    test_set = dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/test"),
+    test_set = dataset.RNNDataSet(pathlib.Path("/home/dwalder/data/images/randomwalk_forward/test"),
                                   10,
                                   device="cuda:0")
 
-    test_interval = 250
+    test_interval = 500
     save_interval = 5000
-    display_interval = 1
+    display_interval = 250
 
     net = networks.BasicConvRNN()
     net.to("cuda:0")
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adadelta(net.parameters())
 
-    num_epochs = 1000
+    num_epochs = 100
     step = 0
     running_loss = 0
 
@@ -194,7 +194,7 @@ def train_rnn():
 
                 if step % save_interval == 0:
                     model_path = pathlib.Path(
-                        "/home/dominik/dataspace/models/rnn_randomwalk_forwad") / "step_{}.pth".format(step)
+                        "/home/dwalder/data/models/rnn_randomwalk_forward") / "step_{}.pth".format(step)
                     print("Saving model to {}".format(model_path))
                     torch.save(net.state_dict(), model_path.as_posix())
 

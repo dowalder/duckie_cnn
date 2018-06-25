@@ -90,9 +90,10 @@ class BasicConvRNN(nn.Module):
         self.fc1 = nn.Linear(in_features=16 * 11 * 16, out_features=1000)
         self.fc2 = nn.Linear(in_features=1000, out_features=1000)
 
-        self.rnn = nn.LSTM(input_size=1002, hidden_size=128, num_layers=1)
+        self.num_lstms = 4
+        self.rnn = nn.LSTM(input_size=1002, hidden_size=128, num_layers=self.num_lstms)
         self.fc_final = nn.Linear(in_features=128, out_features=2)
-
+	
         self.device = device
         self.init_hidden()
 
@@ -112,7 +113,7 @@ class BasicConvRNN(nn.Module):
         return out
 
     def init_hidden(self):
-        self.hidden = (torch.zeros(1, 1, 128, device=self.device), torch.zeros(1, 1, 128, device=self.device))
+        self.hidden = (torch.zeros(self.num_lstms, 1, 128, device=self.device), torch.zeros(self.num_lstms, 1, 128, device=self.device))
 
     def rnn_pass(self, x, action):
         if len(action.shape) <= 1:
