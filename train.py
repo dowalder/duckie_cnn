@@ -54,6 +54,8 @@ def net_factory(net: str, params) -> torch.nn.Module:
         return networks.BasicConvRNN(device=params.device)
     elif net == "resnet_rnn":
         return networks.ResnetRNN(pretrained=params.pretrained, device=params.device)
+    elif net == "resnet_rnn_small":
+        return networks.ResnetRNNsmall()
     else:
         raise RuntimeError("Unkown network: {}".format(net))
 
