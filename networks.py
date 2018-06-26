@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models.resnet
 
 
 def _num_flat_features(x):
@@ -93,7 +94,7 @@ class BasicConvRNN(nn.Module):
         self.num_lstms = 4
         self.rnn = nn.LSTM(input_size=1002, hidden_size=128, num_layers=self.num_lstms)
         self.fc_final = nn.Linear(in_features=128, out_features=2)
-	
+
         self.device = device
         self.init_hidden()
 
@@ -113,7 +114,8 @@ class BasicConvRNN(nn.Module):
         return out
 
     def init_hidden(self):
-        self.hidden = (torch.zeros(self.num_lstms, 1, 128, device=self.device), torch.zeros(self.num_lstms, 1, 128, device=self.device))
+        self.hidden = (torch.zeros(self.num_lstms, 1, 128, device=self.device),
+                       torch.zeros(self.num_lstms, 1, 128, device=self.device))
 
     def rnn_pass(self, x, action):
         if len(action.shape) <= 1:
@@ -130,4 +132,37 @@ class BasicConvRNN(nn.Module):
         out = self.rnn_pass(out, action)
         return out
 
+
+class ResnetRNN(nn.Module):
+
+    def __init__(self, pretrained=False, device="cpu"):
+        super(ResnetRNN, self).__init__()
+        self.resnet = torchvision.models.resnet.resnet18(pretrained=pretrained)
+
+        self.num_lstms = 1
+        self.rnn = nn.LSTM(input_size=1002, hidden_size=128, num_layers=self.num_lstms)
+        self.fc_final = nn.Linear(in_features=128, out_features=2)
+
+        self.device = device
+        self.init_hidden()
+
+    def to(self, device):
+        super(ResnetRNN, self).to(device)
+        self.device = device
+
+    def init_hidden(self):
+        self.hidden = (torch.zeros(self.num_lstms, 1, 128, device=self.device),
+                       torch.zeros(self.num_lstms, 1, 128, device=self.device))
+
+    def forward(self, img, action):
+        x = self.resnet(img)
+
+        if len(action.shape) <= 1:
+            action = action.unsqueeze(0)
+
+        x = torch.cat((x, action), 1)
+        x = x.unsqueeze(1)
+        x, _ = self.rnn(x, self.hidden)
+        x = self.fc_final(x)
+        return x
 

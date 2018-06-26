@@ -3,11 +3,12 @@ import os
 import pathlib
 import PIL.Image
 import yaml
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 import torch
 import torch.utils.data
 import torchvision.transforms as transforms
+import PIL.Image
 
 import numpy as np
 import cv2
@@ -91,15 +92,23 @@ class FutureLabelDataSet(NImagesDataSet):
 
 class RNNDataSet(torch.utils.data.Dataset):
 
-    def __init__(self, data_dir: pathlib.Path, seq_length: Union[int, Tuple[int, int]], device="cpu"):
+    def __init__(self,
+                 data_dir: pathlib.Path,
+                 seq_length: Union[int, Tuple[int, int]],
+                 device="cpu",
+                 img_size=(120, 160)):
         self.length = seq_length if isinstance(seq_length, tuple) else seq_length
         self.sequences = []
         self.dir = data_dir
+        self.img_size = img_size
         for path in data_dir.iterdir():
             if path.suffix == ".yaml":
                 self.sequences.append(yaml.load(path.read_text()))
 
-        self.transform = transforms.ToTensor()
+        self.transform = transforms.Compose([
+            transforms.Resize(img_size),
+            transforms.ToTensor()
+        ])
         self.device = torch.device(device)
 
     def __len__(self):
@@ -113,12 +122,12 @@ class RNNDataSet(torch.utils.data.Dataset):
 
         start_idx = np.random.randint(0, len(seq) - length)
 
-        imgs = torch.empty(size=(length, 3, 120, 160), dtype=torch.float, device=self.device)
+        imgs = torch.empty(size=(length, 3, self.img_size[0], self.img_size[1]), dtype=torch.float, device=self.device)
         actions = torch.empty(size=(length, 2), dtype=torch.float, device=self.device)
         lbls = torch.empty(size=(length, 2), dtype=torch.float, device=self.device)
 
         for idx, img_info in enumerate(seq[start_idx:start_idx + length]):
-            img = cv2.imread((self.dir / img_info["path"]).as_posix())
+            img = PIL.Image.open((self.dir / img_info["path"]).as_posix())
             if img is None:
                 raise RuntimeError("Could not find the image at: {}".format(img_info["path"]))
 

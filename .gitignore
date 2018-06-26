@@ -5,6 +5,7 @@ venv3
 *.pth
 *.jpg
 *.csv
+conf.yaml
 
 
 

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import pathlib
 import random
+import yaml
+from typing import Dict
 
 import torch
 import torch.nn
@@ -9,6 +12,50 @@ import torch.utils.data
 
 import networks
 import dataset
+
+
+class Params:
+
+    def __init__(self, args):
+        conf = yaml.load(pathlib.Path(args.conf).read_text())
+        check_conf(conf)
+
+        self.train_path = pathlib.Path(conf["train_path"])
+        self.test_path = pathlib.Path(conf["test_path"])
+        self.model_path = pathlib.Path(conf["model_path"])
+        self.device = torch.device(conf["device"])
+        self.network = conf["network"]
+        self.num_epochs = conf["num_epochs"]
+        self.pretrained = conf["pretrained"]
+
+        self.test_interval = conf["intervals"]["test"]
+        self.display_interval = conf["intervals"]["display"]
+        self.save_interval = conf["intervals"]["save"]
+
+
+def check_conf(conf: Dict):
+    required_fields = {
+        "train_path": str,
+        "test_path": str,
+        "model_path": str,
+        "device": str,
+        "intervals": dict,
+        "network": str,
+        "num_epochs": int,
+        "pretrained": bool
+    }
+    for key, val in required_fields.items():
+        assert key in conf, "Missing key: {}".format(key)
+        assert isinstance(conf[key], val), "Expected {} to be {}, but got {}".format(key, val, conf[key].__class__)
+
+
+def net_factory(net: str, params) -> torch.nn.Module:
+    if net == "conv_rnn":
+        return networks.BasicConvRNN(device=params.device)
+    elif net == "resnet_rnn":
+        return networks.ResnetRNN(pretrained=params.pretrained, device=params.device)
+    else:
+        raise RuntimeError("Unkown network: {}".format(net))
 
 
 def validation(net, test_loader, criterion, device="cpu"):
@@ -128,33 +175,25 @@ def exact_caffe_copy_factory(train_path, test_path):
     return net, train_loader, test_loader, criterion, optimizer
 
 
-def train_rnn():
+def train_rnn(params: Params):
     train_sets = []
+    img_size = (224, 224) if params.network == "resnet_rnn" else (120, 160)
     # train_sets.append(dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train_large"),
     #                                      10,
     #                                      device="cuda:0"))
-    train_sets.append(dataset.RNNDataSet(pathlib.Path("/home/dwalder/data/images/randomwalk_forward/train_large"),
-                                         10,
-                                         device="cuda:0"))
-    test_set = dataset.RNNDataSet(pathlib.Path("/home/dwalder/data/images/randomwalk_forward/test"),
-                                  10,
-                                  device="cuda:0")
+    train_sets.append(dataset.RNNDataSet(params.train_path, 10, device=params.device, img_size=img_size))
+    test_set = dataset.RNNDataSet(params.test_path, 10, device=params.device, img_size=img_size)
 
-    test_interval = 500
-    save_interval = 5000
-    display_interval = 250
-
-    net = networks.BasicConvRNN()
-    net.to("cuda:0")
+    net = net_factory(params.network, params)
+    net.to(params.device)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adadelta(net.parameters())
 
-    num_epochs = 100
     step = 0
     running_loss = 0
 
     for train_set in train_sets:
-        for epoch in range(num_epochs):
+        for epoch in range(params.num_epochs):
             for idx in range(len(train_set)):
                 optimizer.zero_grad()
                 net.zero_grad()
@@ -165,8 +204,7 @@ def train_rnn():
 
                 imgs, actions, lbls = train_set[idx_actually]
 
-                out = net.cnn_pass(imgs)
-                out = net.rnn_pass(out, actions)
+                out = net(imgs, actions)
 
                 out = out.squeeze()
                 loss = criterion(out, lbls)
@@ -176,11 +214,11 @@ def train_rnn():
                 running_loss += loss.item()
                 step += 1
 
-                if step % display_interval == 0:
-                    print("[{}][{}]: {}".format(epoch, idx, running_loss / display_interval))
+                if step % params.display_interval == 0:
+                    print("[{}][{}]: {}".format(epoch, idx, running_loss / params.display_interval))
                     running_loss = 0
 
-                if step % test_interval == 0:
+                if step % params.test_interval == 0:
                     with torch.no_grad():
                         test_loss = 0
                         net.init_hidden()
@@ -192,13 +230,23 @@ def train_rnn():
 
                         print("test: {}".format(test_loss / len(test_set)))
 
-                if step % save_interval == 0:
-                    model_path = pathlib.Path(
-                        "/home/dwalder/data/models/rnn_randomwalk_forward") / "step_{}.pth".format(step)
+                if step % params.save_interval == 0:
+                    model_path = params.model_path / "step_{}.pth".format(step)
                     print("Saving model to {}".format(model_path))
                     torch.save(net.state_dict(), model_path.as_posix())
 
 
+def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--conf", "-c", help="configuration file (.yaml)", required=True)
+
+    args = parser.parse_args()
+    params = Params(args)
+
+    train_rnn(params)
+
+
 if __name__ == "__main__":
-    train_rnn()
+    main()
 
