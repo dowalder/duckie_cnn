@@ -173,9 +173,10 @@ class ResnetRNNsmall(nn.Module):
 
     def __init__(self, pretrained=False, device="cpu"):
         super(ResnetRNNsmall, self).__init__()
-        self.resnet = resnet.resnet8()
-
         self.num_lstms = 1
+
+        self.resnet = resnet.resnet8()
+        self.dropout = nn.Dropout(p=0.2)
         self.rnn = nn.LSTM(input_size=1002, hidden_size=128, num_layers=self.num_lstms)
         self.fc_final = nn.Linear(in_features=128, out_features=2)
 
@@ -192,6 +193,7 @@ class ResnetRNNsmall(nn.Module):
 
     def forward(self, img, action):
         x = self.resnet(img)
+        x = self.dropout(x)
 
         if len(action.shape) <= 1:
             action = action.unsqueeze(0)
