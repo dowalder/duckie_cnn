@@ -5,6 +5,7 @@ import pathlib
 import random
 import yaml
 from typing import Dict
+import collections
 
 import torch
 import torch.nn
@@ -12,6 +13,26 @@ import torch.utils.data
 
 import networks
 import dataset
+
+
+class Statistics:
+
+    def __init__(self, path: pathlib.Path):
+        self.train = collections.OrderedDict()
+        self.test = collections.OrderedDict()
+        self.path = path
+
+    def add_train(self, value: float, iteration: int):
+        self.train[iteration] = value
+
+    def add_test(self, value: float, iteration: int):
+        self.test[iteration] = value
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.path.write_text(yaml.dump({"test": self.test, "train": self.train}))
 
 
 class Params:
@@ -178,12 +199,8 @@ def exact_caffe_copy_factory(train_path, test_path):
 
 
 def train_rnn(params: Params):
-    train_sets = []
     img_size = (224, 224) if params.network == "resnet_rnn" else (120, 160)
-    # train_sets.append(dataset.RNNDataSet(pathlib.Path("/home/dominik/dataspace/images/randomwalk_forward/train_large"),
-    #                                      10,
-    #                                      device="cuda:0"))
-    train_sets.append(dataset.RNNDataSet(params.train_path, 10, device=params.device, img_size=img_size))
+    train_set = dataset.RNNDataSet(params.train_path, 10, device=params.device, img_size=img_size)
     test_set = dataset.RNNDataSet(params.test_path, 10, device=params.device, img_size=img_size)
 
     net = net_factory(params.network, params)
@@ -194,7 +211,7 @@ def train_rnn(params: Params):
     step = 0
     running_loss = 0
 
-    for train_set in train_sets:
+    with Statistics(params.model_path / "stat.yaml") as statistics:
         for epoch in range(params.num_epochs):
             for idx in range(len(train_set)):
                 optimizer.zero_grad()
@@ -217,7 +234,9 @@ def train_rnn(params: Params):
                 step += 1
 
                 if step % params.display_interval == 0:
-                    print("[{}][{}]: {}".format(epoch, idx, running_loss / params.display_interval))
+                    err = running_loss / params.display_interval
+                    print("[{}][{}]: {}".format(epoch, idx, err))
+                    statistics.add_train(err, step)
                     running_loss = 0
 
                 if step % params.test_interval == 0:
@@ -230,7 +249,9 @@ def train_rnn(params: Params):
                             loss = criterion(out, lbls)
                             test_loss += loss.item()
 
-                        print("test: {}".format(test_loss / len(test_set)))
+                        err = test_loss / len(test_set)
+                        print("test: {}".format(err))
+                        statistics.add_test(err, step)
 
                 if step % params.save_interval == 0:
                     model_path = params.model_path / "step_{}.pth".format(step)
