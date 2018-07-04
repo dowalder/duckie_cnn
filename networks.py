@@ -93,7 +93,7 @@ class BasicConvRNN(nn.Module):
         self.fc1 = nn.Linear(in_features=16 * 11 * 16, out_features=1000)
         self.fc2 = nn.Linear(in_features=1000, out_features=1000)
 
-        self.num_lstms = 4
+        self.num_lstms = 1
         self.rnn = nn.LSTM(input_size=1002, hidden_size=128, num_layers=self.num_lstms)
         self.fc_final = nn.Linear(in_features=128, out_features=2)
 
