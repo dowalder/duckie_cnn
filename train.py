@@ -263,11 +263,20 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--conf", "-c", help="configuration file (.yaml)", required=True)
+    parser.add_argument("--net", default="rnn")
 
     args = parser.parse_args()
     params = Params(args)
 
-    train_rnn(params)
+    if args.net == "rnn":
+        train_rnn(params)
+    elif args.net == "cnn":
+        net, train_loader, test_loader, criterion, optimizer = exact_caffe_copy_factory(params.train_path.as_posix(),
+                                                                                        params.test_path.as_posix())
+        train_cnn(net, train_loader, test_loader, criterion, optimizer, params.model_path.as_posix(), device="cuda:0",
+                  save_interval=1000)
+    else:
+        raise RuntimeError("Unknown option for --net: {}".format(args.net))
 
 
 if __name__ == "__main__":

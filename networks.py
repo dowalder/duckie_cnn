@@ -40,6 +40,7 @@ class InitialNet(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, padding=2, stride=2)
         self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5, padding=2, stride=2)
         self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, padding=2, stride=2)
+        self.dropout = nn.Dropout2d(p=0.3)
 
         self.fc1 = nn.Linear(10 * 5 * 64, 1024)
         self.fc2 = nn.Linear(1024, 1)
@@ -49,9 +50,11 @@ class InitialNet(nn.Module):
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = F.relu(self.conv4(x))
+        x = self.dropout(x)
         x = x.view(-1, _num_flat_features(x))
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
+        # x = F.tanh(x)
         return x
 
 
@@ -66,13 +69,13 @@ class NImagesNet(InitialNet):
         self.fc1 = nn.Linear(n * 10 * 5 * 64, 1024)
 
 
-class FutureLabelNet(NImagesNet):
+class DoubleLabelNet(NImagesNet):
     """
     Is able to give out the current and the next label as an output of the network.
     """
 
     def __init__(self, n):
-        super(FutureLabelNet, self).__init__(n=n)
+        super(DoubleLabelNet, self).__init__(n=n)
         self.fc2 = nn.Linear(1024, 2)
 
 

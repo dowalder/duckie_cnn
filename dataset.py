@@ -3,6 +3,7 @@ import os
 import pathlib
 import PIL.Image
 import yaml
+import csv
 from typing import Union, Tuple, Optional
 
 import torch
@@ -22,7 +23,7 @@ class DataSet(torch.utils.data.Dataset):
 
     def __init__(self, data_dir):
         self.images = [os.path.join(data_dir, img_file) for img_file in os.listdir(data_dir)
-                       if img_file.endswith(".jpg")]
+                       if (img_file.endswith(".jpg") or img_file.endswith(".png"))]
         self.labels = []
         for image in self.images:
             stem, _ = os.path.splitext(os.path.basename(image))
@@ -46,6 +47,31 @@ class DataSet(torch.utils.data.Dataset):
         if img is None:
             raise IOError("Could not read the image {}".format(self.images[item]))
         return torch.Tensor(self.labels[item]), self.transform(img)
+
+
+class AurelDataSet(DataSet):
+
+    def __init__(self, data_csv: pathlib.Path):
+        if not data_csv.is_file():
+            ValueError("{} is not a valid file".format(data_csv))
+
+        self.images = []
+        self.labels = []
+        with data_csv.open() as fid:
+            reader = csv.reader(fid)
+            for row in reader:
+                try:
+                    label = float(row[0])
+                except ValueError:
+                    continue
+                self.labels.append(label)
+                self.images.append(row[0])
+
+        self.transform = transforms.Compose([
+            transforms.Grayscale(),
+            transforms.Resize((80, 160)),
+            transforms.ToTensor(),
+        ])
 
 
 class NImagesDataSet(DataSet):
