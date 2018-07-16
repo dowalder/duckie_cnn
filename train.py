@@ -193,7 +193,7 @@ def exact_caffe_copy_factory(train_path, test_path):
     net.apply(networks.weights_init)
 
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.85, weight_decay=0.0005)
+    optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.85, weight_decay=0.0005)
 
     return net, train_loader, test_loader, criterion, optimizer
 
@@ -273,6 +273,21 @@ def main():
     elif args.net == "cnn":
         net, train_loader, test_loader, criterion, optimizer = exact_caffe_copy_factory(params.train_path.as_posix(),
                                                                                         params.test_path.as_posix())
+        train_cnn(net, train_loader, test_loader, criterion, optimizer, params.model_path.as_posix(), device="cuda:0",
+                  save_interval=1000)
+    elif args.net == "resnet":
+        train_set = dataset.ColorDataSet(params.train_path.as_posix())
+        test_set = dataset.ColorDataSet(params.test_path.as_posix())
+
+        train_loader = torch.utils.data.DataLoader(train_set, batch_size=200, shuffle=True)
+        test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False)
+
+        net = networks.ResnetController()
+        networks.weights_init(net)
+
+        criterion = torch.nn.MSELoss()
+        optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.85, weight_decay=0.0005)
+
         train_cnn(net, train_loader, test_loader, criterion, optimizer, params.model_path.as_posix(), device="cuda:0",
                   save_interval=1000)
     else:

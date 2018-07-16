@@ -40,21 +40,40 @@ class InitialNet(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, padding=2, stride=2)
         self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5, padding=2, stride=2)
         self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, padding=2, stride=2)
-        self.dropout = nn.Dropout2d(p=0.3)
+        # self.dropout = nn.Dropout2d(p=0.3)
 
         self.fc1 = nn.Linear(10 * 5 * 64, 1024)
-        self.fc2 = nn.Linear(1024, 1)
+        self.fc2 = nn.Linear(1024, 2)  # TODO: change back
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = F.relu(self.conv4(x))
-        x = self.dropout(x)
+        # x = self.dropout(x)
         x = x.view(-1, _num_flat_features(x))
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         # x = F.tanh(x)
+        return x
+
+
+class ResnetController(nn.Module):
+
+    def __init__(self):
+        super(ResnetController, self).__init__()
+
+        self.resnet = resnet.resnet8()
+
+        self.fc1 = nn.Linear(1000, 250)
+        self.fc2 = nn.Linear(250, 125)
+        self.fc3 = nn.Linear(125, 2)
+
+    def forward(self, x):
+        x = F.relu(self.resnet(x))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
         return x
 
 

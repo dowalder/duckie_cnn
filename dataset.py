@@ -49,6 +49,17 @@ class DataSet(torch.utils.data.Dataset):
         return torch.Tensor(self.labels[item]), self.transform(img)
 
 
+class ColorDataSet(DataSet):
+
+    def __init__(self, data_dir):
+        super(ColorDataSet, self).__init__(data_dir)
+
+        self.transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor()
+        ])
+
+
 class AurelDataSet(DataSet):
 
     def __init__(self, data_csv: pathlib.Path):
@@ -64,8 +75,8 @@ class AurelDataSet(DataSet):
                     label = float(row[0])
                 except ValueError:
                     continue
-                self.labels.append(label)
-                self.images.append(row[0])
+                self.labels.append([label])
+                self.images.append(row[1])
 
         self.transform = transforms.Compose([
             transforms.Grayscale(),
