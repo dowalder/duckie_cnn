@@ -55,7 +55,7 @@ class ColorDataSet(DataSet):
         super(ColorDataSet, self).__init__(data_dir)
 
         self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((120, 160)),
             transforms.ToTensor()
         ])
 
