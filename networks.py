@@ -43,7 +43,7 @@ class InitialNet(nn.Module):
         # self.dropout = nn.Dropout2d(p=0.3)
 
         self.fc1 = nn.Linear(10 * 5 * 64, 1024)
-        self.fc2 = nn.Linear(1024, 2)  # TODO: change back
+        self.fc2 = nn.Linear(1024, 1)  # TODO: change back
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -65,12 +65,16 @@ class ResnetController(nn.Module):
 
         self.resnet = resnet.resnet8()
 
+        self.dropout = nn.Dropout2d(0.3)
+
         self.fc1 = nn.Linear(1000, 250)
         self.fc2 = nn.Linear(250, 125)
         self.fc3 = nn.Linear(125, 2)
 
     def forward(self, x):
         x = F.relu(self.resnet(x))
+        x = self.dropout(x)
+
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)

@@ -193,8 +193,8 @@ def exact_caffe_copy_factory(train_path, test_path):
     net.apply(networks.weights_init)
 
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.85, weight_decay=0.0005)
-
+    # optimizer = torch.optim.SGD(net.parameters(), lr=0.00001, momentum=0.85, weight_decay=0.0005)
+    optimizer = torch.optim.Adam(net.parameters())
     return net, train_loader, test_loader, criterion, optimizer
 
 
@@ -286,7 +286,7 @@ def main():
         networks.weights_init(net)
 
         criterion = torch.nn.MSELoss()
-        optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.85, weight_decay=0.0005)
+        optimizer = torch.optim.Adam(net.parameters())
 
         train_cnn(net, train_loader, test_loader, criterion, optimizer, params.model_path.as_posix(),
                   device=params.device, save_interval=1000)
