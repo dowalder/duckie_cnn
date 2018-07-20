@@ -206,10 +206,10 @@ def train_rnn(params: Params):
     net = net_factory(params.network, params)
     net.to(params.device)
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adadelta(net.parameters())
+    optimizer = torch.optim.Adam(net.parameters())
 
     step = 0
-    running_loss = 0
+    running_loss = []
 
     with Statistics(params.model_path / "stat.yaml") as statistics:
         for epoch in range(params.num_epochs):
@@ -219,9 +219,7 @@ def train_rnn(params: Params):
 
                 net.init_hidden()
 
-                idx_actually = random.choice(list(range(len(train_set))))
-
-                imgs, actions, lbls = train_set[idx_actually]
+                imgs, actions, lbls = train_set[idx]
 
                 out = net(imgs, actions)
 
@@ -230,26 +228,26 @@ def train_rnn(params: Params):
                 loss.backward()
                 optimizer.step()
 
-                running_loss += loss.item()
+                running_loss.append(loss.item())
                 step += 1
 
                 if step % params.display_interval == 0:
-                    err = running_loss / params.display_interval
-                    print("[{}][{}]: {}".format(epoch, idx, err))
+                    err = sum(running_loss) / len(running_loss)
+                    print("[{}][{}]: {}".format(epoch, step, err))
                     statistics.add_train(err, step)
-                    running_loss = 0
+                    running_loss = []
 
                 if step % params.test_interval == 0:
                     with torch.no_grad():
-                        test_loss = 0
-                        net.init_hidden()
+                        test_loss = []
                         for imgs, actions, lbls in test_set:
+                            net.init_hidden()
                             out = net(imgs, actions)
                             out = out.squeeze()
                             loss = criterion(out, lbls)
-                            test_loss += loss.item()
+                            test_loss.append(loss.item())
 
-                        err = test_loss / len(test_set)
+                        err = sum(test_loss) / len(test_loss)
                         print("test: {}".format(err))
                         statistics.add_test(err, step)
 
@@ -257,6 +255,123 @@ def train_rnn(params: Params):
                     model_path = params.model_path / "step_{}.pth".format(step)
                     print("Saving model to {}".format(model_path))
                     torch.save(net.state_dict(), model_path.as_posix())
+
+
+def train_seq_cnn(params: Params):
+    img_size = (120, 160)
+    num_imgs = 5
+
+    print("Loading datasets...")
+    print("\ttraining: {}".format(params.train_path))
+    train_set = dataset.RNNDataSet(params.train_path, num_imgs, device=params.device, img_size=img_size)
+    print("\ttesting: {}".format(params.test_path))
+    test_set = dataset.RNNDataSet(params.test_path, num_imgs, device=params.device, img_size=img_size)
+
+    print("Loading net and moving it to {}...".format(params.device))
+    net = networks.SequenceCnn(device=params.device, num_imgs=num_imgs)
+    net.apply(networks.weights_init)
+    net.to(params.device)
+
+    optimizer = torch.optim.Adam(net.parameters())
+    criterion = torch.nn.MSELoss()
+
+    print("Starting training")
+    running_loss = []
+    step = 0
+    with Statistics(params.model_path / "stat.yaml") as statistics:
+        for epoch in range(params.num_epochs):
+            for imgs, actions, lbls in train_set:
+                optimizer.zero_grad()
+
+                out = net(imgs, actions)
+                loss = criterion(out.squeeze(), lbls[0, :])
+                running_loss.append(loss.item())
+                loss.backward()
+                optimizer.step()
+
+                step += 1
+
+                if step % params.display_interval == 0:
+                    err = sum(running_loss) / len(running_loss)
+                    print("[{}][{}] train: {}".format(epoch, step, err))
+                    statistics.add_train(err, step)
+                    running_loss = []
+
+                if step % params.test_interval == 0:
+                    with torch.no_grad():
+                        test_err = []
+                        for imgs_test, actions_test, lbls_test in test_set:
+                            out = net(imgs_test, actions_test)
+                            loss = criterion(out.squeeze(), lbls_test[0, :])
+                            test_err.append(loss.item())
+                        err = sum(test_err) / len(test_err)
+                        print("[{}][{}] test: {}".format(epoch, step, err))
+                        statistics.add_test(err, step)
+
+                if step % params.save_interval == 0:
+                    model_path = params.model_path / "step_{}.pth".format(step)
+                    print("Saving model to {}".format(model_path))
+                    torch.save(net.state_dict(), model_path.as_posix())
+
+    print("Done.")
+
+
+def train_action_estimator(params: Params):
+    img_size = (120, 160)
+
+    print("Loading datasets...")
+    print("\ttraining: {}".format(params.train_path))
+    train_set = dataset.RNNDataSet(params.train_path, 2, device=params.device, img_size=img_size)
+    print("\ttesting: {}".format(params.test_path))
+    test_set = dataset.RNNDataSet(params.test_path, 2, device=params.device, img_size=img_size)
+
+    print("Loading net and moving it to {}...".format(params.device))
+    net = networks.ActionEstimator()
+    net.apply(networks.weights_init)
+    net.to(params.device)
+
+    optimizer = torch.optim.Adam(net.parameters())
+    criterion = torch.nn.MSELoss()
+
+    print("Starting training")
+    running_loss = []
+    step = 0
+    with Statistics(params.model_path / "stat.yaml") as statistics:
+        for epoch in range(params.num_epochs):
+            for imgs, actions, lbls in train_set:
+                optimizer.zero_grad()
+
+                out = net(imgs)
+                loss = criterion(out.squeeze(), lbls[0, :] * actions[0, :])
+                running_loss.append(loss.item())
+                loss.backward()
+                optimizer.step()
+
+                step += 1
+
+                if step % params.display_interval == 0:
+                    err = sum(running_loss) / len(running_loss)
+                    print("[{}][{}] train: {}".format(epoch, step, err))
+                    statistics.add_train(err, step)
+                    running_loss = []
+
+                if step % params.test_interval == 0:
+                    with torch.no_grad():
+                        test_err = []
+                        for imgs_test, actions_test, lbls_test in test_set:
+                            out = net(imgs_test)
+                            loss = criterion(out.squeeze(), lbls_test[0, :] * actions_test[0, :])
+                            test_err.append(loss.item())
+                        err = sum(test_err) / len(test_err)
+                        print("[{}][{}] test: {}".format(epoch, step, err))
+                        statistics.add_test(err, step)
+
+                if step % params.save_interval == 0:
+                    model_path = params.model_path / "step_{}.pth".format(step)
+                    print("Saving model to {}".format(model_path))
+                    torch.save(net.state_dict(), model_path.as_posix())
+
+    print("Done.")
 
 
 def main():
@@ -290,6 +405,10 @@ def main():
 
         train_cnn(net, train_loader, test_loader, criterion, optimizer, params.model_path.as_posix(),
                   device=params.device, save_interval=1000)
+    elif args.net == "seq_cnn":
+        train_seq_cnn(params)
+    elif args.net == "action_est":
+        train_action_estimator(params)
     else:
         raise RuntimeError("Unknown option for --net: {}".format(args.net))
 

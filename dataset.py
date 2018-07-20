@@ -134,7 +134,7 @@ class RNNDataSet(torch.utils.data.Dataset):
                  seq_length: Union[int, Tuple[int, int]],
                  device="cpu",
                  img_size=(120, 160)):
-        self.length = seq_length if isinstance(seq_length, tuple) else seq_length
+        self.length = seq_length
         self.sequences = []
         self.dir = data_dir
         self.img_size = img_size
@@ -144,6 +144,7 @@ class RNNDataSet(torch.utils.data.Dataset):
 
         self.transform = transforms.Compose([
             transforms.Resize(img_size),
+            # transforms.Grayscale(),
             transforms.ToTensor()
         ])
         self.device = torch.device(device)
